@@ -57,15 +57,15 @@ contract NFTMarketPlace is ERC721URIStorage {
         string memory tokenURI,
         uint256 price
     ) public payable returns (uint256) {
-        _tokenIds.add(_tokenIds.length());
-        uint256 newTokenId = _tokenIds.length();
+        _tokenIds.increment();
+        uint256 newTokenId = _tokenIds.current();
         _mint(msg.sender, newTokenId);
         _setTokenURI(newTokenId, tokenURI);
         createMarketItem(newTokenId, price);
         return newTokenId;
     }
 
-    function createMarketItem(uint256 tokenId, uint256 price) public  payable{
+    function createMarketItem(uint256 tokenId, uint256 price) public {
         require(price > 0, "Price Must be Atleaset 1");
         require(
             msg.value == listingPrice,
@@ -102,7 +102,7 @@ contract NFTMarketPlace is ERC721URIStorage {
         idMarketItem[tokenId].price = price;
         idMarketItem[tokenId].seller = payable(msg.sender);
         idMarketItem[tokenId].owner = payable(address(this));
-        _itemsSold.remove(tokenId); // Remove tokenId from itemsSold set
+        _itemsSold.decrement();
         _transfer(msg.sender, address(this), tokenId);
     }
 
@@ -115,19 +115,19 @@ contract NFTMarketPlace is ERC721URIStorage {
         idMarketItem[tokenId].owner = payable(msg.sender);
         idMarketItem[tokenId].sold = true;
         idMarketItem[tokenId].owner = payable(address(0));
-        _itemsSold.add(tokenId); // Add tokenId to itemsSold set
+        _itemsSold.increment();
         _transfer(address(this), msg.sender, tokenId);
         payable(owner).transfer(listingPrice);
         payable(idMarketItem[tokenId].seller).transfer(msg.value);
     }
 
     function fetchMarketItem() public view returns (MarketItem[] memory) {
-        uint256 itemCount = _tokenIds.length();
-        uint256 unSoldItemCount = itemCount - _itemsSold.length();
+        uint256 itemCount = _tokenIds.current();
+        uint256 unSoldItemCount = _tokenIds.current() - _itemsSold.current();
         uint256 currentIndex = 0;
         MarketItem[] memory items = new MarketItem[](unSoldItemCount);
         for (uint256 i = 0; i < itemCount; i++) {
-            if (!idMarketItem[i + 1].sold) {
+            if (idMarketItem[i + 1].owner == address(this)) {
                 uint256 currentId = i + 1;
                 MarketItem storage currentItem = idMarketItem[currentId];
                 items[currentIndex] = currentItem;
@@ -138,10 +138,10 @@ contract NFTMarketPlace is ERC721URIStorage {
     }
 
     function fetchMyNFT() public view returns (MarketItem[] memory) {
-        uint256 totalCount = _tokenIds.length();
+        uint256 totalCount = _tokenIds.current();
         uint256 itemCount = 0;
         uint256 currentIndex = 0;
-        for (uint256 i = 0; i < totalCount; i++) {
+        for (uint i = 0; i < totalCount; i++) {
             if (idMarketItem[i + 1].owner == msg.sender) {
                 itemCount += 1;
             }
@@ -157,23 +157,22 @@ contract NFTMarketPlace is ERC721URIStorage {
         }
         return items;
     }
-
     //SIngle user item
-    function fetchItemsListed() public view returns (MarketItem[] memory) {
-        uint256 totalCount = _tokenIds.length();
-        uint256 itemCount = 0;
-        uint256 currentIndex = 0;
-        for (uint256 i = 0; i < totalCount; i++) {
-            if (idMarketItem[i + 1].seller == msg.sender) {
-                itemCount += 1;
-            }
+    function fetchItemsListed() public view returns(MarketItem[] memory){
+        uint256 totalCount=_tokenIds.current();
+        uint256 itemCount=0;
+        uint256 currentIndex=0;
+        for (uint i = 0; i < totalCount; i++) {
+            if(idMarketItem[i+1].seller==msg.sender){
+                itemCount+=1;
+            } 
         }
-        MarketItem[] memory items = new MarketItem[](itemCount);
+        MarketItem[] memory items=new MarketItem[](itemCount);
         for (uint256 i = 0; i < totalCount; i++) {
             if (idMarketItem[i + 1].seller == msg.sender) {
                 uint256 currntId = i + 1;
                 MarketItem storage currentItem = idMarketItem[currntId];
-                items[currentIndex] = currentItem;
+                items[currentIndex] = currentItem; 
                 currentIndex += 1;
             }
         }
